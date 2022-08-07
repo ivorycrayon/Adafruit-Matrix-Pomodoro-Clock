@@ -8,11 +8,10 @@ import time
 import board
 import displayio
 import terminalio
-import colorsys
 import random
+import simpleio
 from rainbowio import colorwheel
 from adafruit_display_text.label import Label
-from adafruit_display_text import bitmap_label as label
 from adafruit_bitmap_font import bitmap_font
 from adafruit_matrixportal.network import Network
 from adafruit_matrixportal.matrix import Matrix
@@ -39,6 +38,22 @@ def scroll(line):
 BLINK = True
 DEBUG = False
 POMODORO = False
+
+buzzer = simpleio.DigitalOut(board.A1,value=0)
+
+test_break_time_interval = .25*60 #5 minute breaks every 25 min
+test_big_break_time_interval = .50*60 #30 minute breaks every 90 minutes
+test_work_time_interval = .25*60 #25 minute work intervals
+
+break_time_interval = 5.5*60 #5 minute breaks every 25 min
+big_break_time_interval = 30*60 #30 minute breaks every 90 minutes
+work_time_interval = 25*60 #25 minute work intervals
+
+color_delay = 60*.04 #all times are in seconds
+color_delay_fast = 60*.08
+color_delay_really_fast = 60*.005
+buzzer_beep_duration = 3
+color_timer_current = time.time()
 
 # Get wifi details and more from a secrets.py file
 try:
@@ -154,9 +169,14 @@ while True:
     if(button_up.fell):
         POMODORO = True
         start_time = time.time()
-        display.show(start_group)
-
+        buzzer_start = time.time()
+        display.show(start_group)        
+        
         while(time.time() - start_time < 10):
+            if(time.time() - buzzer_start < .5):
+                buzzer.value = True
+            else:
+                buzzer.value = False
             scroll(start_label)
             time.sleep(.05)
             display.refresh(minimum_frames_per_second=0)
@@ -168,11 +188,14 @@ while True:
 
 
     if(not POMODORO):
+        color_timer_start = time.time()
+
         update_color(color_i=color_i)
 
-        if(color_i < 254):
+        if(color_i < 254 and color_timer_current - color_timer_start < color_delay):
             color_i += 1
-            time.sleep(.005)
+            update_time()
+            color_timer_current = time.time()
         else:
             color_i = 1
 
@@ -189,9 +212,15 @@ while True:
 
             update_time()
     else: #POMODORO
-        display.show(work_group)
+        buzzer_start = time.time()
+        color_timer_start = time.time()
+        display.show(work_group) 
         work_label.x = 64
-        while(time.time() - start_time < 28): #7 seconds per loop
+        while(time.time() - start_time < 28): #7 seconds per loop - 4 loops reminder to work
+                if(time.time() - buzzer_start < buzzer_beep_duration):
+                    buzzer.value = True
+                else:
+                    buzzer.value = False
                 scroll(work_label)
                 work_label.color = 0xff0000
                 time.sleep(.04)                
@@ -202,39 +231,47 @@ while True:
 
         current_time = time.time()
         work_time = current_time - start_time
-        if(work_time > .25*60 and break_count < 3): #should be 25 min
-            
+        if(work_time > work_time_interval and break_count < 3): #25 min work intervals 
             display.show(break_group)
             break_time = time.time()
+            buzzer_start = time.time()
 
             break_label.x = 64
-            while(time.time() - break_time < .425*60): #should be 5 min
+            while(time.time() - break_time < break_time_interval): #5 min breaks
+                if(time.time() - buzzer_start < buzzer_beep_duration):
+                    buzzer.value = True
+                else:
+                    buzzer.value = False
                 scroll(break_label)
                 time.sleep(.08)
                 display.refresh(minimum_frames_per_second=0)
 
-            #display.show(clock_group)
             start_time = time.time()
             break_count += 1
-        elif(work_time > .25*60 and break_count == 3): #should be 25 min
+        elif(work_time > work_time_interval and break_count == 3): #25 min work intervals with trigger for the big 4th break
             display.show(break_group)
             break_time = time.time()
+            buzzer_start = time.time()
 
             break_label.x = 64
-            while(time.time() - break_time < .25*60): #should be 15-30 min
+            while(time.time() - break_time < big_break_time_interval): #15-30 minute rest
                 #scroll(break_label)
                 #time.sleep(.05)
+                if(time.time() - buzzer_start < buzzer_beep_duration):
+                    buzzer.value = True
+                else:
+                    buzzer.value = False
                 display.refresh(minimum_frames_per_second=0)
 
-            #display.show(clock_group)
             start_time = time.time()
             break_count = 0
 
         update_color(color_i=color_i)
 
-        if(color_i < 254):
+        if(color_i < 254 and color_timer_current - color_timer_start < color_delay):
             color_i += 1
-            time.sleep(.01)
+            update_time()
+            color_timer_current = time.time()
         else:
             color_i = 1
 
