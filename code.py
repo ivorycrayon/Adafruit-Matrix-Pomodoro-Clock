@@ -1,5 +1,6 @@
 # SPDX-FileCopyrightText: 2020 John Park for Adafruit Industries
 # SPDX-License-Identifier: MIT
+# Modified for personal use as a study tool at home :)
 
 # Metro Matrix Clock 
 # Runs on Airlift Metro M4 with 64x32 RGB Matrix display & shield.
